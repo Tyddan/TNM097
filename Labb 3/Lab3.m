@@ -1,0 +1,201 @@
+%% 1. Color Gamut
+load Dell.mat;
+plot_chrom(XYZdell,'blue');
+plot_chrom(XYZinkjet, 'green');
+
+%% 2 Mathematical metrics
+% 2.1.1 Grayscale image (MSE/SNR)
+im = imread('peppers_gray.tif');
+im = im2double(im);
+nearestIm = imresize(imresize(im,0.25,'nearest'),4,'nearest'); 
+bicubicIm = imresize(imresize(im,0.25,'bicubic'),4,'bicubic');
+bilinearIm = imresize(imresize(im,0.25,'bilinear'),4,'bilinear');
+
+nearestNoise = im - nearestIm;
+bicubicNoise = im - bicubicIm;
+bilinearNoise = im - bilinearIm;
+
+snr_n = snr(nearestIm,nearestNoise);
+snr_bic = snr(bicubicIm, bicubicNoise);
+snr_bil = snr(bilinearIm, bilinearNoise);
+
+figure(1)
+imshow(im)
+title('original');
+
+figure(2)
+subplot(1,3,1)
+imshow(nearestIm);
+title('Nearest');
+
+subplot(1,3,2)
+imshow(bicubicIm);
+title('Bicubic');
+
+subplot(1,3,3)
+imshow(bilinearIm);
+title('Bilinear');
+
+
+%% 2.1.2 Halftoning
+original = imread('peppers_gray.tif');
+original = im2double(original);
+
+%threshold
+image = original >= 0.5;
+image = double(image);
+%dither
+im_dith1 = dither(original);
+im_dith1 = double(im_dith1);
+
+dith_noise =original - image;
+thresh_noise = original-im_dith1;
+
+snr_dith = snr(im_dith1,dith_noise);
+snr_tresh = snr(image,thresh_noise);
+
+imshow(im_dith1);
+figure(2)
+imshow(image);
+
+%% 2.2 Colorr Image
+originalColor = imread('peppers_color.tif');
+originalColor = im2double(originalColor);
+im_orig = rgb2lab(originalColor);
+
+
+%threshold
+im_thresh(:,:,1) = originalColor(:,:,1) >= 0.5;
+im_thresh(:,:,2) = originalColor(:,:,2) >= 0.5;
+im_thresh(:,:,3) = originalColor(:,:,3) >= 0.5;
+im_thresh = double(im_thresh);
+
+%dither
+im_dith(:,:,1) = dither(originalColor(:,:,1));
+im_dith(:,:,2) = dither(originalColor(:,:,2));
+im_dith(:,:,3) = dither(originalColor(:,:,3));
+im_dith = double(im_dith);
+
+im_dithLab = rgb2lab(im_dith);
+im_threshLab = rgb2lab(im_thresh);
+
+[max_value_dith,mean_value_dith] = compute_euclidian(im_orig,im_dithLab);
+[max_value_thresh,mean_value_thresh] = compute_euclidian(im_orig,im_threshLab);
+
+figure(1)
+imshow(im_thresh)
+figure(2)
+imshow(im_dith)
+
+
+%% 3 Mathematical metrics involving HVS
+
+Dith_HVS =snr_filter(im_dith1,original-im_dith1);
+Thresh_HVS = snr_filter(image, original-image);
+
+%1 Gör HVS för varje kanal i en färgbild
+% kolla om negativa nummer
+% rgb2lab 
+% euclidean
+
+originalColor = imread('peppers_color.tif');
+originalColor = im2double(originalColor);
+
+%Dither
+im_dith(:,:,1) = dither(originalColor(:,:,1));
+im_dith(:,:,2) = dither(originalColor(:,:,2));
+im_dith(:,:,3) = dither(originalColor(:,:,3));
+im_dith = double(im_dith);
+
+im_dith(:,:,1)=(im_dith(:,:,1)>0).*im_dith(:,:,1);
+im_dith(:,:,2)=(im_dith(:,:,2)>0).*im_dith(:,:,2);
+im_dith(:,:,3)=(im_dith(:,:,3)>0).*im_dith(:,:,3);
+
+f=MFTsp(15,0.0847,500);
+
+s1(:,:,1)=conv2(originalColor(:,:,1),f,'same');
+s1(:,:,2)=conv2(originalColor(:,:,2),f,'same');
+s1(:,:,3)=conv2(originalColor(:,:,3),f,'same');
+% Ögats filter är applicerat till signalen (originalbilden)
+
+n1(:,:,1)=conv2(im_dith(:,:,1),f,'same');
+n1(:,:,2)=conv2(im_dith(:,:,2),f,'same');
+n1(:,:,3)=conv2(im_dith(:,:,3),f,'same');
+% Ögats filter är applicerat till "noise"-en (skillnaden mellan originalbilden och rasterbilden)
+figure(1)
+imshow(n1)
+
+R1=snr(s1,n1);
+% Man räknar snr mellan signalen och noise-en efter att de har gått genom
+% ögats filter
+
+n1=rgb2lab(n1);
+s1=rgb2lab(s1);
+[max_valueHVSdith,mean_valueHVSdith] = compute_euclidian(s1,n1);
+
+%threshold
+im_thresh(:,:,1) = originalColor(:,:,1) >= 0.5;
+im_thresh(:,:,2) = originalColor(:,:,2) >= 0.5;
+im_thresh(:,:,3) = originalColor(:,:,3) >= 0.5;
+im_thresh = double(im_thresh);
+
+im_thresh(:,:,1)=(im_thresh(:,:,1)>0).*im_thresh(:,:,1);
+im_thresh(:,:,2)=(im_thresh(:,:,2)>0).*im_thresh(:,:,2);
+im_thresh(:,:,3)=(im_thresh(:,:,3)>0).*im_thresh(:,:,3);
+
+s2(:,:,1)=conv2(originalColor(:,:,1),f,'same');
+s2(:,:,2)=conv2(originalColor(:,:,2),f,'same');
+s2(:,:,3)=conv2(originalColor(:,:,3),f,'same');
+% Ögats filter är applicerat till signalen (originalbilden)
+
+n2(:,:,1)=conv2(im_thresh(:,:,1),f,'same');
+n2(:,:,2)=conv2(im_thresh(:,:,2),f,'same');
+n2(:,:,3)=conv2(im_thresh(:,:,3),f,'same');
+% Ögats filter är applicerat till "noise"-en (skillnaden mellan originalbilden och rasterbilden)
+
+figure(2)
+imshow(n2)
+
+R2=snr(s2,n2);
+% Man räknar snr mellan signalen och noise-en efter att de har gått genom
+% ögats filter
+
+n2=rgb2lab(n2);
+s2=rgb2lab(s2);
+[max_valueHVSthresh,mean_valueHVSthresh] = compute_euclidian(s2,n2);
+
+%% 4 S-CIELab
+colorimage = imread('peppers_color.tif');
+colorimage = im2double(colorimage);
+sampPerDeg = round(visualAngle(-1, 18, 72, 1));
+
+nearestImage = imresize(imresize(colorimage,0.25,'nearest'),4,'nearest'); 
+bicubicImage = imresize(imresize(colorimage,0.25,'bicubic'),4,'bicubic');
+bilinearImage = imresize(imresize(colorimage,0.25,'bilinear'),4,'bilinear');
+
+nearestImage = rgb2xyz(nearestImage);
+bicubicImage = rgb2xyz(bicubicImage);
+bilinearImage = rgb2xyz(bilinearImage);
+
+result1 = scielab(sampPerDeg, colorimage, nearestImage, [95.05, 100, 108.9], 'xyz');
+result2 = scielab(sampPerDeg, colorimage, bicubicImage, [95.05, 100, 108.9], 'xyz');
+result3 = scielab(sampPerDeg, colorimage, bilinearImage, [95.05, 100, 108.9], 'xyz');
+result1 = 1./result1;
+result2 = 1./result2;
+result3 = 1./result3;
+
+figure(2)
+subplot(1,3,1)
+imshow(result1);
+title('Nearest');
+
+subplot(1,3,2)
+imshow(result2);
+title('Bicubic');
+
+subplot(1,3,3)
+imshow(result3);
+title('Bilinear');
+
+
+%% 5 SSIM
